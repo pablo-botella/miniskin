@@ -1,9 +1,9 @@
 # Release: runs when a v* tag lands, and only blesses tags that sit on
-# main. The gate checks the tag against the config's own number, then
-# regenerates the docs on a clean checkout (a stale committed artifact
-# fails the diff), vets and tests. The release job cross-compiles the
-# six targets from one runner — pure Go, no cgo — and publishes the
-# zips with their checksums.
+# main. The gate regenerates the docs on a clean checkout (a stale
+# committed artifact fails the diff), then vets and tests. The release
+# job cross-compiles the six targets from one runner — pure Go, no cgo —
+# and refuses to publish unless the tag, the config's embedded version
+# and the binary's stamped build info all agree.
 name: release
 
 on:
@@ -27,15 +27,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: tag matches the config
-        # the config owns the release number; git only consumes it — a
-        # tag the config did not declare is refused at the door (the
-        # mkskill version is the one go.mod pins)
-        run: |
-          want="$(go run github.com/pablo-botella/mkskill/cmd/mkskill -q -vout version)"
-          [ "$want" = "$GITHUB_REF_NAME" ] || {
-            echo "::error::config says $want, tag is $GITHUB_REF_NAME"; exit 1; }
-
       - name: docs are fresh
         # regenerate everything; if a COMMITTED artifact changes, someone
         # edited _mkskill/ without running go generate — refuse the tag
@@ -56,6 +47,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # tags included: go stamps bi.Main.Version from the tag
+          # NOTE: no `go generate` here — a dirty tree would stamp +dirty;
+          # the binaries embed the COMMITTED docs, which verify just proved fresh
 
       - uses: actions/setup-go@v5
         with:
