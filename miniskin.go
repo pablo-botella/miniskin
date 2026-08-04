@@ -39,8 +39,10 @@ package miniskin
 // The documentation is not automatic — this makes it: `go generate ./...`
 // rebuilds every artifact from _mkskill/ (README, AGENTS.md, the skill and
 // the cmd README; the tool version is pinned by go.mod), and the golden
-// test fails when anything went stale.
+// test fails when anything went stale. The second line propagates the
+// version-spec's destinations (__publish.bat) without touching the version.
 //go:generate go run github.com/pablo-botella/mkskill/cmd/mkskill -q build
+//go:generate go run github.com/pablo-botella/mkskill/cmd/mkskill -q -vbuild
 
 import (
 	"fmt"

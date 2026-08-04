@@ -22,6 +22,7 @@ var mkskillSkill string
 var MkskillSpec = mkskill.Spec{
 	Name:        "miniskin",
 	Description: "Use when working with miniskin templates, mockup files, *.miniskin.xml configuration, or Go projects that use github.com/pablo-botella/miniskin",
+	Version:     "v0.5.1",
 	Readme:      mkskillReadme,
 	Agents:      mkskillAgents,
 	Skill:       mkskillSkill,

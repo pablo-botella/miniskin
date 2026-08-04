@@ -60,11 +60,23 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	"github.com/pablo-botella/miniskin"
 	"github.com/pablo-botella/mskblob"
 )
+
+// buildVersion answers the module version the binary was compiled at — a
+// `go install ...@vX.Y.Z` or a tag-stamped build reports that tag and can
+// never drift from it. A local `go build` has no tag and says "dev".
+func buildVersion() string {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok || bi.Main.Version == "" || bi.Main.Version == "(devel)" {
+		return "dev"
+	}
+	return bi.Main.Version
+}
 
 func main() {
 
@@ -82,6 +94,18 @@ func main() {
 
 	cmd := os.Args[1]
 	argsOffset := 2
+
+	if cmd == "version" {
+		// two truths, both printed when both exist: the embed says which
+		// release this claims to be (from the config's version-spec); the
+		// build info says what was actually compiled.
+		if MkskillSpec.Version != "" {
+			fmt.Println("miniskin " + MkskillSpec.Version + " (" + buildVersion() + ")")
+		} else {
+			fmt.Println("miniskin " + buildVersion())
+		}
+		return
+	}
 
 	// Handle "mockup" subcommands
 	if cmd == "mockup" {
@@ -239,6 +263,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, "  combine <dir>          Combine subdirectory XMLs into one\n")
 	fmt.Fprintf(os.Stderr, "  split <file>           Split nested resource-lists into separate XMLs\n")
 	fmt.Fprintf(os.Stderr, "  blob-header <file>     Inspect a .blob file's header (magic, version, buildID)\n")
+	fmt.Fprintf(os.Stderr, "  version                Print the version (embed + build info)\n")
 	fmt.Fprintf(os.Stderr, "\nFlags:\n")
 	fmt.Fprintf(os.Stderr, "  -content string        path to content directory (default \".\")\n")
 	fmt.Fprintf(os.Stderr, "  -modules string        path to modules directory (default \".\")\n")

@@ -2,3 +2,4 @@
 *.exe
 go.work
 go.work.sum
+__publish.bat
