@@ -1,0 +1,4 @@
+*.miniskin_generated
+*.exe
+go.work
+go.work.sum

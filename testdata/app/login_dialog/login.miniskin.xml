@@ -1,0 +1,6 @@
+<miniskin>
+	<resource-list urlbase="/login">
+		<item type="html-template,nomux" src="signin_src.html" file="signin.html" key="/login/signin" />
+		<item type="static" src="plain_src.css" file="plain.css" />
+	</resource-list>
+</miniskin>

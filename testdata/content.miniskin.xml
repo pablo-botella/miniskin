@@ -1,0 +1,8 @@
+<miniskin>
+	<globals>
+		<var name="appName" value="TestApp" />
+	</globals>
+	<bucket-list filename="generated_embed.go" module="content">
+		<bucket src="app" dst="/modules/app/generated_embed_list.go" module-name="app" recurse-folder="all" />
+	</bucket-list>
+</miniskin>

@@ -1,0 +1,17 @@
+github.com/pablo-botella/cargoxml v0.5.1 h1:9o9TWymfaPNbmnSuI2jjjkbbh44HOhN/PfpbhCbQM5o=
+github.com/pablo-botella/cargoxml v0.5.1/go.mod h1:q8uY6DQW7eTx2RuxTPfGbnoDks361idhJybuqQziCek=
+github.com/pablo-botella/fmlines v0.5.1 h1:1Qkv5ICxjnME2oaQJk0AYd6zQp07oTFrY9v62xj+izs=
+github.com/pablo-botella/fmlines v0.5.1/go.mod h1:0F+gaglE6tkE5cy6sgVD2/FpBrLlbv5xARAPRfkllAM=
+github.com/pablo-botella/linereader v0.5.1 h1:cs9WhKGwZ042uwsuKl99CuedfxEi9C4zuF8jFGWy7BU=
+github.com/pablo-botella/linereader v0.5.1/go.mod h1:vcKYM3kS+NF6IdDdOP/kNmYUWecNHntNeAzz0kXXvss=
+github.com/pablo-botella/mkskill v0.5.1 h1:DBEF/knVHo7+wcVQqGFD4g7MsHdCyJPLL0/J18uNRkE=
+github.com/pablo-botella/mkskill v0.5.1/go.mod h1:W5HIaBriKnHIwLsrXLYQdj3APOVHzdQzC1ASwFB4QDE=
+github.com/pablo-botella/mskblob v0.5.1 h1:dMxj8QPw3YOCGwbBXeXcvjLL2Vc9WTYIrfuaiWhiRfw=
+github.com/pablo-botella/mskblob v0.5.1/go.mod h1:t6pRPWLaoExkU3hIXHU1z1dIPqCSDsJ1aCsId8uYcws=
+github.com/tdewolff/minify/v2 v2.24.13 h1:xrcF7gKDnUszseEY9WX9mUlZII2v2Go/QAcAwRASw58=
+github.com/tdewolff/minify/v2 v2.24.13/go.mod h1:emvwoYeIl8bfAKqRU5ww95LX9Gpggpqv/naal9a8Yq0=
+github.com/tdewolff/parse/v2 v2.8.12 h1:5BBjfaCv482v3nltlS0u6wH1xJaxjR6ofDrWttNvROg=
+github.com/tdewolff/parse/v2 v2.8.12/go.mod h1:Hwlni2tiVNKyzR1o6nUs4FOF07URA+JLBLd6dlIXYqo=
+github.com/tdewolff/test v1.0.11/go.mod h1:XPuWBzvdUzhCuxWO1ojpXsyzsA5bFoS3tO/Q3kFuTG8=
+github.com/tdewolff/test v1.0.12 h1:7F21DqIajswxuche0geHdrUZRCWE4oko4b7bcmkkrxk=
+github.com/tdewolff/test v1.0.12/go.mod h1:XPuWBzvdUzhCuxWO1ojpXsyzsA5bFoS3tO/Q3kFuTG8=

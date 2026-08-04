@@ -1,0 +1,5 @@
+<miniskin>
+	<resource-list urlbase="/assets">
+		<item type="static" file="app.css" />
+	</resource-list>
+</miniskin>

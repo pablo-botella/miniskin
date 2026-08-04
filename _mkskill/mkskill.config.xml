@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mkskill>
+  <project id="main" name="miniskin" project-type="Go-Module">
+    <meta>
+      <module>github.com/pablo-botella/miniskin</module>
+      <license>MIT</license>
+      <description>Use when working with miniskin templates, mockup files, *.miniskin.xml configuration, or Go projects that use github.com/pablo-botella/miniskin</description>
+    </meta>
+    <child-project id="cli" name="miniskin-cli" path="./cmd/miniskin" project-type="Go-CLI">
+      <embed filename="miniskin_generated_embed.go" module-name="main" embed-parent="*"/>
+    </child-project>
+  </project>
+</mkskill>
