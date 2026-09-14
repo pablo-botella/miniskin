@@ -239,14 +239,16 @@ func TestParseInclude(t *testing.T) {
 		body       string
 		path       string
 		minifyType string
-		aggressive bool
+		level      string
 	}{
-		{"/css/site.css", "/css/site.css", "", false},
-		{" /css/site.css minify:css", "/css/site.css", "css", false},
-		{"/css/site.css minify:css:1", "/css/site.css", "css", true},
-		{`"/my css/site.css" minify:js:1`, "/my css/site.css", "js", true},
-		{"/my css/site.css minify:css", "/my css/site.css", "css", false},
-		{"/my css/site.css", "/my css/site.css", "", false},
+		{"/css/site.css", "/css/site.css", "", ""},
+		{" /css/site.css minify:css", "/css/site.css", "css", "1"},
+		{"/css/site.css minify:css:0", "/css/site.css", "css", "0"},
+		{"/css/site.css minify:css:1", "/css/site.css", "css", "1"},
+		{"/css/site.css minify:css:2", "/css/site.css", "css", "2"},
+		{`"/my css/site.css" minify:js:2`, "/my css/site.css", "js", "2"},
+		{"/my css/site.css minify:css", "/my css/site.css", "css", "1"},
+		{"/my css/site.css", "/my css/site.css", "", ""},
 	}
 	for _, tt := range tests {
 		inf, err := parseInclude(tt.body)
@@ -254,7 +256,7 @@ func TestParseInclude(t *testing.T) {
 			t.Errorf("%q: unexpected error: %v", tt.body, err)
 			continue
 		}
-		if inf.path != tt.path || inf.minifyType != tt.minifyType || inf.aggressive != tt.aggressive {
+		if inf.path != tt.path || inf.minifyType != tt.minifyType || inf.level != tt.level {
 			t.Errorf("%q: got %+v", tt.body, inf)
 		}
 	}
@@ -263,7 +265,8 @@ func TestParseInclude(t *testing.T) {
 func TestParseIncludeErrors(t *testing.T) {
 	for _, body := range []string{
 		"/a.css minify:scss",
-		"/a.css minify:css:2",
+		"/a.css minify:css:3",
+		"/a.css minify:css:",
 		"/a.css minify:css:1:1",
 		`"/a.css" indent:4`,
 	} {
@@ -279,7 +282,7 @@ func TestIncludeMinifyCSS(t *testing.T) {
 
 	ms := newSilent(dir, dir)
 	vars := map[string]string{"color": "red"}
-	for _, level := range []string{"minify:css", "minify:css:1"} {
+	for _, level := range []string{"minify:css", "minify:css:1", "minify:css:2"} {
 		result, err := ms.resolvePercent("<style><%%include:/site.css "+level+"%%></style>", vars, nil)
 		if err != nil {
 			t.Fatalf("%s: include failed: %v", level, err)
@@ -303,12 +306,27 @@ func TestIncludeMinifySafeKeepsVarNames(t *testing.T) {
 	if !strings.Contains(safe, "longName") {
 		t.Errorf("safe level should keep variable names: %q", safe)
 	}
-	aggressive, err := ms.resolvePercent("<%%include:/a.js minify:js:1%%>", nil, nil)
+	aggressive, err := ms.resolvePercent("<%%include:/a.js minify:js:2%%>", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(aggressive, "longName") {
 		t.Errorf("aggressive level should rename variables: %q", aggressive)
+	}
+}
+
+func TestIncludeMinifyLevelZero(t *testing.T) {
+	dir := t.TempDir()
+	css := "body {\n  color: red;\n}\n"
+	os.WriteFile(filepath.Join(dir, "a.css"), []byte(css), 0644)
+
+	ms := newSilent(dir, dir)
+	result, err := ms.resolvePercent("<%%include:/a.css minify:css:0%%>", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != css {
+		t.Errorf("level 0 should not minify: %q", result)
 	}
 }
 

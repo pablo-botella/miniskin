@@ -32,6 +32,20 @@ func TestApplyMinify(t *testing.T) {
 			want:  "body{color:red}",
 		},
 		{
+			name:  "level 2 css is minified",
+			in:    "body {\n  color: red;\n}\n",
+			level: "2",
+			ext:   ".css",
+			want:  "body{color:red}",
+		},
+		{
+			name:  "level 1 js keeps variable names",
+			in:    "function f() {\n  var longName = 1;\n  return longName;\n}\n",
+			level: "1",
+			ext:   ".js",
+			want:  "function f(){var longName=1;return longName}",
+		},
+		{
 			name:  "json is minified",
 			in:    "{\n  \"a\": 1\n}\n",
 			level: "1",
@@ -64,5 +78,16 @@ func TestApplyMinify(t *testing.T) {
 				t.Errorf("applyMinify() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestApplyMinifyUnknownLevel(t *testing.T) {
+	in := "body {\n  color: red;\n}\n"
+	got, err := applyMinify(in, "3", ".css")
+	if err == nil {
+		t.Fatal("expected error for unknown minify level")
+	}
+	if got != in {
+		t.Errorf("content should be returned untouched on error: %q", got)
 	}
 }

@@ -95,7 +95,7 @@ Position of `<escape>` elements within a block is irrelevant. Child rules overri
 | `end-mockup-import` | Close mockup-import block (mandatory — generic `end` is not valid here) |
 | `note:text` | Discarded silently (comment) |
 | `echo:text` | Emit text (uses default escape) |
-| `include:path [minify:type[:1]]` | Include file contents (double tags only, resolved recursively), optionally minified |
+| `include:path [minify:type[:0\|1\|2]]` | Include file contents (double tags only, resolved recursively), optionally minified |
 | `include-notes:path` | Include only the bodies of `note:` tags from the file (double tags only). Used to assemble per-component documentation into a single Markdown |
 | `doc-block-begin:NAME` / `doc-block-end:NAME` | Capture content between the markers into the named buffer `ms.docBuffer[NAME]`; the captured region is not emitted in place |
 | `doc-block-content:NAME` | Emit the captured contents of the named buffer |
@@ -200,8 +200,12 @@ An include can run its resolved result through the minifier (tdewolff/minify):
 
 | Flag | Level |
 |---|---|
-| `minify:type` | safe — conservative options |
-| `minify:type:1` | aggressive — maximum minification (same as front-matter `@minify:1`) |
+| `minify:type:0` | none |
+| `minify:type:1` | safe — conservative options |
+| `minify:type` | safe — same as `minify:type:1` |
+| `minify:type:2` | aggressive — maximum minification |
+
+The levels are the same as the front-matter `@minify` directive.
 
 Types: `css`, `js`, `html`, `json`, `svg`, `xml`. An unknown type or level is an error.
 

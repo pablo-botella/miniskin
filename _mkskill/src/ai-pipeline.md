@@ -25,7 +25,7 @@ Lines starting with `@` are directives (processed by miniskin, not passed as var
 
 | Directive | Values | Description |
 |---|---|---|
-| `@minify` | `0` (default), `1` | Minify output via tdewolff/minify, selected by output extension (html/css/js/json/svg/xml). Other types pass through unchanged. |
+| `@minify` | `0` (default), `1`, `2` | Minify output via tdewolff/minify, selected by output extension (html/css/js/json/svg/xml). `0` = none, `1` = safe (conservative options), `2` = aggressive (maximum minification). Other types pass through unchanged; an unknown level is an error. |
 | `@eol` | `lf`, `crlf`, `cr` | Convert line endings (default: no conversion) |
 
 ## XML structure

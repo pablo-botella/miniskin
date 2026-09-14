@@ -893,12 +893,12 @@ var minifier = func() *minify.M {
 	return m
 }()
 
-// safeMinifier is the conservative counterpart of minifier, used by the safe
-// level of an include's minify flag. It keeps what is most likely to matter:
+// safeMinifier is the conservative counterpart of minifier, used by minify
+// level 1 (safe). It keeps what is most likely to matter:
 // CSS2-compatible output, variable names, number literals, and HTML quotes,
 // end tags, document tags, default attribute values and special comments.
 // SVG and XML have no conservative options worth keeping, so they minify as
-// in the aggressive level.
+// in level 2 (aggressive).
 var safeMinifier = func() *minify.M {
 	m := minify.New()
 	m.Add("text/html", &html.Minifier{
@@ -916,6 +916,21 @@ var safeMinifier = func() *minify.M {
 	return m
 }()
 
+// minifierForLevel returns the minifier for a minify level, shared by the
+// @minify front-matter directive and the include minify flag: "" or "0" = no
+// minification (nil), "1" = safe, "2" = aggressive. Any other level is an error.
+func minifierForLevel(level string) (*minify.M, error) {
+	switch strings.TrimSpace(level) {
+	case "", "0":
+		return nil, nil
+	case "1":
+		return safeMinifier, nil
+	case "2":
+		return minifier, nil
+	}
+	return nil, fmt.Errorf("unknown minify level %q (valid: 0 = none, 1 = safe, 2 = aggressive)", level)
+}
+
 // includeMinifyTypes maps the type of an include's minify flag to the media
 // type understood by the minifier.
 var includeMinifyTypes = map[string]string{
@@ -930,19 +945,19 @@ var includeMinifyTypes = map[string]string{
 // includeFlags holds the parsed body of an include tag.
 type includeFlags struct {
 	path       string
-	minifyType string // "" = no minification, otherwise a key of includeMinifyTypes
-	aggressive bool   // minify:type:1
+	minifyType string // "" = no minify flag, otherwise a key of includeMinifyTypes
+	level      string // minify level: "0" = none, "1" = safe, "2" = aggressive
 }
 
 // parseInclude parses the body of an include tag (after "include:"):
 //
 //	/path/file.css
 //	"/path with spaces/file.css" minify:css
-//	/path/file.css minify:css:1
+//	/path/file.css minify:css:2
 //
-// minify:type is the safe level, minify:type:1 the aggressive one. An
-// unquoted path keeps any inner spaces: only trailing minify: tokens are
-// taken as flags.
+// minify:type:N takes the same levels as @minify (0 = none, 1 = safe,
+// 2 = aggressive); minify:type alone is level 1. An unquoted path keeps any
+// inner spaces: only trailing minify: tokens are taken as flags.
 func parseInclude(body string) (includeFlags, error) {
 	var inf includeFlags
 	rest := strings.TrimSpace(body)
@@ -975,15 +990,15 @@ func parseInclude(body string) (includeFlags, error) {
 		if _, ok := includeMinifyTypes[parts[0]]; !ok {
 			return inf, fmt.Errorf("include %s: unknown minify type %q (valid: css, js, html, json, svg, xml)", inf.path, parts[0])
 		}
-		switch {
-		case len(parts) == 1:
-			inf.aggressive = false
-		case len(parts) == 2 && parts[1] == "1":
-			inf.aggressive = true
-		default:
-			return inf, fmt.Errorf("include %s: unknown minify level in %q (valid: minify:%s or minify:%s:1)", inf.path, f, parts[0], parts[0])
+		level := "1"
+		if len(parts) == 2 {
+			level = parts[1]
+		}
+		if _, err := minifierForLevel(level); err != nil || len(parts) > 2 || level == "" {
+			return inf, fmt.Errorf("include %s: unknown minify level in %q (valid: minify:%s, minify:%s:0, minify:%s:1, minify:%s:2)", inf.path, f, parts[0], parts[0], parts[0], parts[0])
 		}
 		inf.minifyType = parts[0]
+		inf.level = level
 	}
 	return inf, nil
 }
@@ -992,9 +1007,9 @@ func parseInclude(body string) (includeFlags, error) {
 // guarantees: whatever the minifier does not understand may be mangled, and a
 // minifier error is returned so the build stops.
 func minifyInclude(content string, inf includeFlags) (string, error) {
-	m := safeMinifier
-	if inf.aggressive {
-		m = minifier
+	m, err := minifierForLevel(inf.level)
+	if err != nil || m == nil {
+		return content, err
 	}
 	return m.String(includeMinifyTypes[inf.minifyType], content)
 }
@@ -1022,17 +1037,19 @@ func minifyMediaType(ext string) string {
 
 // applyMinify minifies content using github.com/tdewolff/minify, selecting the
 // minifier from the output file extension ext. Level "" or "0" is a no-op, as is
-// an unminifiable type. On any minification error the original content is
-// returned together with the error so the caller never emits corrupted output.
+// an unminifiable type; "1" is safe and "2" aggressive (see minifierForLevel).
+// On any minification error the original content is returned together with the
+// error so the caller never emits corrupted output.
 func applyMinify(content string, level string, ext string) (string, error) {
-	if level == "" || level == "0" {
-		return content, nil
+	m, err := minifierForLevel(level)
+	if err != nil || m == nil {
+		return content, err
 	}
 	mediatype := minifyMediaType(ext)
 	if mediatype == "" {
 		return content, nil
 	}
-	out, err := minifier.String(mediatype, content)
+	out, err := m.String(mediatype, content)
 	if err != nil {
 		return content, err
 	}
