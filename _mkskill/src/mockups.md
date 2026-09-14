@@ -69,6 +69,10 @@ This keeps mockup files self-contained and browser-renderable while the exported
 </div>
 ```
 
+**BOM:** a leading UTF-8 BOM in the imported file is stripped, so it never lands in the middle of the mockup.
+
+**Percent tags in imported content:** the inline content may carry percent tags of its own (e.g. `<%html:page_class%>`). The block is closed by its matching `end-mockup-import`, not by the next tag, so repeated updates replace the content instead of duplicating it. A generic `end` is only recognised right after the import tag.
+
 **Nesting:** `mockup-import` inside `mockup-export` works normally (the imported content becomes part of the export). `mockup-export` inside `mockup-import` is ignored — imported content is inserted as raw text without parsing.
 
 Quoted paths are supported for filenames with spaces: `mockup-export: "/path with spaces/file.css" append`

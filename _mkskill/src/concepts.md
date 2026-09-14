@@ -95,7 +95,7 @@ Position of `<escape>` elements within a block is irrelevant. Child rules overri
 | `end-mockup-import` | Close mockup-import block (mandatory — generic `end` is not valid here) |
 | `note:text` | Discarded silently (comment) |
 | `echo:text` | Emit text (uses default escape) |
-| `include:path` | Include file contents (double tags only, resolved recursively) |
+| `include:path [minify:type[:1]]` | Include file contents (double tags only, resolved recursively), optionally minified |
 | `include-notes:path` | Include only the bodies of `note:` tags from the file (double tags only). Used to assemble per-component documentation into a single Markdown |
 | `doc-block-begin:NAME` / `doc-block-end:NAME` | Capture content between the markers into the named buffer `ms.docBuffer[NAME]`; the captured region is not emitted in place |
 | `doc-block-content:NAME` | Emit the captured contents of the named buffer |
@@ -185,6 +185,35 @@ Fragment files included via `<%%include:/path%%>`:
 - No front-matter, no skin — raw fragments only
 - Never written to disk — resolved in memory
 - Cycle detection: if A includes B includes A, generation fails
+- A leading UTF-8 BOM is stripped
+- Paths with spaces must be quoted: `<%%include:"/my css/site.css"%%>`
+
+#### Minified includes
+
+An include can run its resolved result through the minifier (tdewolff/minify):
+
+```html
+<style>
+<%%include:/css/site.css minify:css%%>
+</style>
+```
+
+| Flag | Level |
+|---|---|
+| `minify:type` | safe — conservative options |
+| `minify:type:1` | aggressive — maximum minification (same as front-matter `@minify:1`) |
+
+Types: `css`, `js`, `html`, `json`, `svg`, `xml`. An unknown type or level is an error.
+
+The safe level keeps CSS2-compatible output (CSS), variable names (JS), number literals (JSON), and quotes, end tags, document tags, default attribute values and special comments (HTML). SVG and XML minify the same at both levels.
+
+This lets you keep a readable, well-formatted source file and still inline it compressed. It is a shredder with **no guarantees**:
+
+- Percent tags and nested includes are resolved first; the minifier sees the final text
+- The included file should contain only valid content of that type. Anything else — e.g. runtime `{{...}}` template actions in CSS or JS — may be mangled
+- Anything inside comments is removed
+- A minifier error stops the build
+- In mockup mode includes are not resolved, so nothing is minified
 
 ### Doc-block buffers
 

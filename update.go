@@ -220,6 +220,7 @@ func refreshImports(content, contentPath, fileDir string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("refreshing mockup-import %s: %w", filePath, err)
 		}
+		data = []byte(stripBOM(string(data)))
 
 		endIdx := findImportEnd(tags, i)
 

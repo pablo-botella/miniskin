@@ -893,6 +893,112 @@ var minifier = func() *minify.M {
 	return m
 }()
 
+// safeMinifier is the conservative counterpart of minifier, used by the safe
+// level of an include's minify flag. It keeps what is most likely to matter:
+// CSS2-compatible output, variable names, number literals, and HTML quotes,
+// end tags, document tags, default attribute values and special comments.
+// SVG and XML have no conservative options worth keeping, so they minify as
+// in the aggressive level.
+var safeMinifier = func() *minify.M {
+	m := minify.New()
+	m.Add("text/html", &html.Minifier{
+		KeepSpecialComments: true,
+		KeepDefaultAttrVals: true,
+		KeepDocumentTags:    true,
+		KeepEndTags:         true,
+		KeepQuotes:          true,
+	})
+	m.Add("text/css", &css.Minifier{Version: 2})
+	m.Add("application/javascript", &js.Minifier{KeepVarNames: true})
+	m.Add("application/json", &json.Minifier{KeepNumbers: true})
+	m.AddFunc("image/svg+xml", svg.Minify)
+	m.AddFunc("text/xml", xml.Minify)
+	return m
+}()
+
+// includeMinifyTypes maps the type of an include's minify flag to the media
+// type understood by the minifier.
+var includeMinifyTypes = map[string]string{
+	"css":  "text/css",
+	"js":   "application/javascript",
+	"html": "text/html",
+	"json": "application/json",
+	"svg":  "image/svg+xml",
+	"xml":  "text/xml",
+}
+
+// includeFlags holds the parsed body of an include tag.
+type includeFlags struct {
+	path       string
+	minifyType string // "" = no minification, otherwise a key of includeMinifyTypes
+	aggressive bool   // minify:type:1
+}
+
+// parseInclude parses the body of an include tag (after "include:"):
+//
+//	/path/file.css
+//	"/path with spaces/file.css" minify:css
+//	/path/file.css minify:css:1
+//
+// minify:type is the safe level, minify:type:1 the aggressive one. An
+// unquoted path keeps any inner spaces: only trailing minify: tokens are
+// taken as flags.
+func parseInclude(body string) (includeFlags, error) {
+	var inf includeFlags
+	rest := strings.TrimSpace(body)
+	var flags []string
+	if strings.HasPrefix(rest, "\"") {
+		end := strings.IndexByte(rest[1:], '"')
+		if end < 0 {
+			inf.path = rest[1:]
+			return inf, nil
+		}
+		inf.path = rest[1 : end+1]
+		flags = strings.Fields(rest[end+2:])
+	} else {
+		fields := strings.Fields(rest)
+		n := len(fields)
+		for n > 1 && strings.HasPrefix(fields[n-1], "minify:") {
+			n--
+		}
+		flags = fields[n:]
+		for i := len(flags) - 1; i >= 0; i-- {
+			rest = strings.TrimSpace(strings.TrimSuffix(rest, flags[i]))
+		}
+		inf.path = rest
+	}
+	for _, f := range flags {
+		if !strings.HasPrefix(f, "minify:") {
+			return inf, fmt.Errorf("include %s: unknown flag %q", inf.path, f)
+		}
+		parts := strings.Split(strings.TrimPrefix(f, "minify:"), ":")
+		if _, ok := includeMinifyTypes[parts[0]]; !ok {
+			return inf, fmt.Errorf("include %s: unknown minify type %q (valid: css, js, html, json, svg, xml)", inf.path, parts[0])
+		}
+		switch {
+		case len(parts) == 1:
+			inf.aggressive = false
+		case len(parts) == 2 && parts[1] == "1":
+			inf.aggressive = true
+		default:
+			return inf, fmt.Errorf("include %s: unknown minify level in %q (valid: minify:%s or minify:%s:1)", inf.path, f, parts[0], parts[0])
+		}
+		inf.minifyType = parts[0]
+	}
+	return inf, nil
+}
+
+// minifyInclude minifies the resolved content of an include. There are no
+// guarantees: whatever the minifier does not understand may be mangled, and a
+// minifier error is returned so the build stops.
+func minifyInclude(content string, inf includeFlags) (string, error) {
+	m := safeMinifier
+	if inf.aggressive {
+		m = minifier
+	}
+	return m.String(includeMinifyTypes[inf.minifyType], content)
+}
+
 // minifyMediaType maps an output file extension (including the leading dot) to
 // the media type understood by the minifier, or "" when the type is not
 // minifiable (in which case the content is left untouched).
@@ -1107,6 +1213,7 @@ func (ms *Miniskin) dispatchSingleTag(rawTag string, vars map[string]string, blo
 			if err != nil {
 				return nil, fmt.Errorf("mockup-import %s: %w", filePath, err)
 			}
+			data = []byte(stripBOM(string(data)))
 			if indentStr != "" {
 				data = applyIndent(data, indentStr)
 			}
@@ -1520,8 +1627,19 @@ func (ms *Miniskin) resolveDoubleTag(name string, vars map[string]string, chain 
 	name = strings.TrimSpace(name)
 
 	if strings.HasPrefix(name, "include:") {
-		includePath := strings.TrimSpace(strings.TrimPrefix(name, "include:"))
-		return ms.resolveInclude(includePath, vars, chain)
+		inf, err := parseInclude(strings.TrimPrefix(name, "include:"))
+		if err != nil {
+			return "", err
+		}
+		resolved, err := ms.resolveInclude(inf.path, vars, chain)
+		if err != nil || inf.minifyType == "" {
+			return resolved, err
+		}
+		minified, err := minifyInclude(resolved, inf)
+		if err != nil {
+			return "", fmt.Errorf("include %s minify:%s: %w", inf.path, inf.minifyType, err)
+		}
+		return minified, nil
 	}
 
 	if strings.HasPrefix(name, "include-notes:") {

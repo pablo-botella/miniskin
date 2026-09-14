@@ -232,6 +232,118 @@ func TestIncludeStripsBOM(t *testing.T) {
 	}
 }
 
+// --- include minify flag
+
+func TestParseInclude(t *testing.T) {
+	tests := []struct {
+		body       string
+		path       string
+		minifyType string
+		aggressive bool
+	}{
+		{"/css/site.css", "/css/site.css", "", false},
+		{" /css/site.css minify:css", "/css/site.css", "css", false},
+		{"/css/site.css minify:css:1", "/css/site.css", "css", true},
+		{`"/my css/site.css" minify:js:1`, "/my css/site.css", "js", true},
+		{"/my css/site.css minify:css", "/my css/site.css", "css", false},
+		{"/my css/site.css", "/my css/site.css", "", false},
+	}
+	for _, tt := range tests {
+		inf, err := parseInclude(tt.body)
+		if err != nil {
+			t.Errorf("%q: unexpected error: %v", tt.body, err)
+			continue
+		}
+		if inf.path != tt.path || inf.minifyType != tt.minifyType || inf.aggressive != tt.aggressive {
+			t.Errorf("%q: got %+v", tt.body, inf)
+		}
+	}
+}
+
+func TestParseIncludeErrors(t *testing.T) {
+	for _, body := range []string{
+		"/a.css minify:scss",
+		"/a.css minify:css:2",
+		"/a.css minify:css:1:1",
+		`"/a.css" indent:4`,
+	} {
+		if _, err := parseInclude(body); err == nil {
+			t.Errorf("%q: expected error", body)
+		}
+	}
+}
+
+func TestIncludeMinifyCSS(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "site.css"), []byte("\xef\xbb\xbf/* comment */\nbody {\n  color: #ffffff;\n  margin: 0px;\n}\n.x { color: <%%color%%>; }\n"), 0644)
+
+	ms := newSilent(dir, dir)
+	vars := map[string]string{"color": "red"}
+	for _, level := range []string{"minify:css", "minify:css:1"} {
+		result, err := ms.resolvePercent("<style><%%include:/site.css "+level+"%%></style>", vars, nil)
+		if err != nil {
+			t.Fatalf("%s: include failed: %v", level, err)
+		}
+		expected := "<style>body{color:#fff;margin:0}.x{color:red}</style>"
+		if result != expected {
+			t.Errorf("%s: expected %q, got %q", level, expected, result)
+		}
+	}
+}
+
+func TestIncludeMinifySafeKeepsVarNames(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.js"), []byte("function f() {\n  var longName = 1;\n  return longName;\n}\n"), 0644)
+
+	ms := newSilent(dir, dir)
+	safe, err := ms.resolvePercent("<%%include:/a.js minify:js%%>", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(safe, "longName") {
+		t.Errorf("safe level should keep variable names: %q", safe)
+	}
+	aggressive, err := ms.resolvePercent("<%%include:/a.js minify:js:1%%>", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(aggressive, "longName") {
+		t.Errorf("aggressive level should rename variables: %q", aggressive)
+	}
+}
+
+func TestIncludeMinifyUnknownType(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.css"), []byte("a{}"), 0644)
+
+	ms := newSilent(dir, dir)
+	if _, err := ms.resolvePercent("<%%include:/a.css minify:scss%%>", nil, nil); err == nil {
+		t.Fatal("expected error for unknown minify type")
+	}
+}
+
+func TestImportStripsBOM(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "frag.html"), []byte("\xef\xbb\xbf<p>one</p>"), 0644)
+
+	ms := newMockup(dir, dir)
+	result, err := ms.resolvePercent("<div><%%mockup-import:\"frag.html\"%%></div>", map[string]string{"mockup": "1"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(result, "\xef\xbb\xbf") {
+		t.Errorf("BOM leaked into mockup output: %q", result)
+	}
+
+	refreshed, err := refreshImports("<!--%%mockup-import:/frag.html%%-->\n<!--%%end-mockup-import%%-->\n", dir, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(refreshed, "\xef\xbb\xbf") {
+		t.Errorf("BOM leaked into refreshed import: %q", refreshed)
+	}
+}
+
 // ---
 
 func TestIndirectCycle(t *testing.T) {
