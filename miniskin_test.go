@@ -3835,6 +3835,49 @@ content
 	}
 }
 
+// The imported fragment carries percent tags of its own: once inlined, the
+// tag after the import is no longer its closer. A second refresh must still
+// recognise the block instead of promoting it again and duplicating content.
+func TestRefreshImportsContentWithPercentTags(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "menu.html"), []byte("<li class=\"<%html:home_class%>\">Home</li>\n<li><a href=\"<%html:url%>\">x</a></li>\n"), 0644)
+
+	input := "<ul>\n   <!--%%mockup-import:\"/menu.html\" indent:\"4\" %%-->\n   <!--%%end-mockup-import%%-->\n</ul>\n"
+	result, err := refreshImports(input, dir, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result2, err := refreshImports(result, dir, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != result2 {
+		t.Errorf("should be idempotent:\n  first:  %q\n  second: %q", result, result2)
+	}
+	if n := strings.Count(result2, "Home"); n != 1 {
+		t.Errorf("content duplicated (%d copies): %q", n, result2)
+	}
+	if n := strings.Count(result2, "end-mockup-import"); n != 1 {
+		t.Errorf("expected 1 end-mockup-import, got %d: %q", n, result2)
+	}
+}
+
+func TestRefreshImportsSingleBeforeBlock(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.css"), []byte("AAA"), 0644)
+	os.WriteFile(filepath.Join(dir, "b.css"), []byte("BBB"), 0644)
+
+	input := "<!--%%mockup-import:/a.css%%-->\nmiddle <%x%>\n<!--%%mockup-import:/b.css%%-->\nold\n<!--%%end-mockup-import%%-->\n"
+	result, err := refreshImports(input, dir, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "<!--%%mockup-import:/a.css%%-->\nAAA\n<!--%%end-mockup-import%%-->\nmiddle <%x%>\n<!--%%mockup-import:/b.css%%-->\nBBB\n<!--%%end-mockup-import%%-->\n"
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
 func TestRefreshImportsCSSWrappers(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "app.css"), []byte(".body{margin:0}"), 0644)
@@ -3908,6 +3951,15 @@ func TestCleanImportsCSSWrappers(t *testing.T) {
 	result := cleanImports(input)
 	if result != expected {
 		t.Errorf("got:\n%s\nwant:\n%s", result, expected)
+	}
+}
+
+func TestCleanImportsContentWithPercentTags(t *testing.T) {
+	input := "<ul>\n<!--%%mockup-import:/menu.html%%-->\n<li class=\"<%html:home_class%>\">Home</li>\n<!--%%end-mockup-import%%-->\n</ul>"
+	expected := "<ul>\n<!--%%mockup-import:/menu.html%%-->\n<!--%%end-mockup-import%%-->\n</ul>"
+	result := cleanImports(input)
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
 	}
 }
 

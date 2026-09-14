@@ -125,16 +125,9 @@ func cleanImports(content string) string {
 			continue
 		}
 
-		// Check if next tag is "end" (existing block)
-		hasBlock := false
-		if i+1 < len(tags) {
-			nextTrimmed := strings.TrimSpace(tags[i+1].content)
-			if nextTrimmed == "end" || nextTrimmed == "end-mockup-export" || nextTrimmed == "end-mockup-import" {
-				hasBlock = true
-			}
-		}
+		endIdx := findImportEnd(tags, i)
 
-		if hasBlock {
+		if endIdx >= 0 {
 			// Emit up to end of line containing the import tag
 			endOfLine := tags[i].end
 			for endOfLine < len(content) && content[endOfLine] != '\n' {
@@ -146,12 +139,12 @@ func cleanImports(content string) string {
 			out.WriteString(content[pos:endOfLine])
 
 			// Skip to start of line containing the end tag
-			startOfLine := tags[i+1].start
+			startOfLine := tags[endIdx].start
 			for startOfLine > 0 && content[startOfLine-1] != '\n' {
 				startOfLine--
 			}
 			pos = startOfLine
-			i += 2
+			i = endIdx + 1
 		} else {
 			// Single tag — nothing to clean
 			i++
@@ -163,6 +156,37 @@ func cleanImports(content string) string {
 	}
 
 	return out.String()
+}
+
+// findImportEnd returns the index of the tag that closes the mockup-import
+// block opened at tags[i], or -1 when the import is a single tag.
+//
+// The inline content of a block is raw text that may carry percent tags of its
+// own (e.g. an imported fragment with <%html:var%>), so the closer is not
+// necessarily the next tag. A generic end or end-mockup-export is accepted only
+// as the immediately following tag, since further on it could belong to
+// anything; otherwise the matching end-mockup-import is searched forward,
+// skipping nested import blocks.
+func findImportEnd(tags []tagInfo, i int) int {
+	if i+1 < len(tags) {
+		next := strings.TrimSpace(tags[i+1].content)
+		if next == "end" || next == "end-mockup-export" || next == "end-mockup-import" {
+			return i + 1
+		}
+	}
+	depth := 0
+	for j := i + 1; j < len(tags); j++ {
+		t := strings.TrimSpace(tags[j].content)
+		if _, ok := isMockupImport(t); ok {
+			depth++
+		} else if t == "end-mockup-import" {
+			if depth == 0 {
+				return j
+			}
+			depth--
+		}
+	}
+	return -1
 }
 
 // refreshImports replaces the inline content of mockup-import blocks
@@ -197,14 +221,7 @@ func refreshImports(content, contentPath, fileDir string) (string, error) {
 			return "", fmt.Errorf("refreshing mockup-import %s: %w", filePath, err)
 		}
 
-		// Check if next tag is "end" (existing block)
-		hasBlock := false
-		if i+1 < len(tags) {
-			nextTrimmed := strings.TrimSpace(tags[i+1].content)
-			if nextTrimmed == "end" || nextTrimmed == "end-mockup-export" || nextTrimmed == "end-mockup-import" {
-				hasBlock = true
-			}
-		}
+		endIdx := findImportEnd(tags, i)
 
 		// Emit up to end of line containing the import tag
 		endOfLine := tags[i].end
@@ -222,13 +239,13 @@ func refreshImports(content, contentPath, fileDir string) (string, error) {
 		out.Write(data)
 		out.WriteString("\n")
 
-		if hasBlock {
+		if endIdx >= 0 {
 			// Skip to start of line containing the end tag, emit from there
-			startOfLine := tags[i+1].start
+			startOfLine := tags[endIdx].start
 			for startOfLine > 0 && content[startOfLine-1] != '\n' {
 				startOfLine--
 			}
-			endOfEndLine := tags[i+1].end
+			endOfEndLine := tags[endIdx].end
 			for endOfEndLine < len(content) && content[endOfEndLine] != '\n' {
 				endOfEndLine++
 			}
@@ -237,7 +254,7 @@ func refreshImports(content, contentPath, fileDir string) (string, error) {
 			}
 			out.WriteString(content[startOfLine:endOfEndLine])
 			pos = endOfEndLine
-			i += 2
+			i = endIdx + 1
 		} else {
 			// Single tag → promote to block
 			out.WriteString("<!--%%end-mockup-import%%-->\n")
